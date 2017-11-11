@@ -1,0 +1,145 @@
+<Project>
+  <PropertyGroup>
+    <_WorkRoot>$(RepositoryRoot).w\</_WorkRoot>
+    <_SrcDirectory>$(RepositoryRoot)src\</_SrcDirectory>
+    <_AllMetapackageDirectory>$(_SrcDirectory)Microsoft.AspNetCore.All\</_AllMetapackageDirectory>
+    <_TemplatesDirectory>$(MSBuildThisFileDirectory)templates\</_TemplatesDirectory>
+  </PropertyGroup>
+
+  <Target Name="BuildMetapackage" DependsOnTargets="ResolveRepoInfo">
+    <!-- Clear working directory -->
+    <RemoveDir Directories="$(_WorkRoot)" />
+
+    <!-- Move to working dir -->
+    <PropertyGroup>
+      <MetapackageWorkDirectory>$(_WorkRoot)Microsoft.AspNetCore.All\</MetapackageWorkDirectory>
+    </PropertyGroup>
+    <ItemGroup>
+      <AllMetapackageFiles Include="$(_AllMetapackageDirectory)**\*" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(AllMetapackageFiles)" DestinationFolder="$(MetapackageWorkDirectory)\%(RecursiveDir)" />
+    <Copy SourceFiles="$(_SrcDirectory)Directory.Build.props" DestinationFolder="$(_WorkRoot)" />
+
+    <!-- Add references to project -->
+    <RepoTasks.AddMetapackageReferences
+      ReferencePackagePath="$(MetapackageWorkDirectory)Microsoft.AspNetCore.All.csproj"
+      BuildArtifacts="@(ArtifactInfo)"
+      PackageArtifacts="@(PackageArtifact)"
+      ExternalDependencies="@(ExternalDependency)" />
+
+    <!-- Set _Target=Restore so the project will be re-evaluated to include Internal.AspNetCore.Sdk MSBuild properties on the next step. -->
+    <!-- TODO: Add AspNetUniverseBuildOffline=true; back after testing -->
+    <MSBuild Projects="$(MetapackageWorkDirectory)Microsoft.AspNetCore.All.csproj"
+      Targets="Restore"
+      Properties="Configuration=$(Configuration);DotNetRestoreSourcePropsPath=$(GeneratedRestoreSourcesPropsPath);_Target=Restore" />
+
+    <!-- Pack -->
+    <MSBuild Projects="$(MetapackageWorkDirectory)Microsoft.AspNetCore.All.csproj"
+      Targets="Pack"
+      Properties="Configuration=$(Configuration);DotNetRestoreSourcePropsPath=$(GeneratedRestoreSourcesPropsPath);AspNetUniverseBuildOffline=true" />
+
+    <!-- Copy to output directory -->
+    <ItemGroup>
+      <AllMetapackageNupkgFile Include="$(MetapackageWorkDirectory)**\*.nupkg" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(AllMetapackageNupkgFile)" DestinationFolder="$(BuildDir)" />
+  </Target>
+
+  <Target Name="GetLatestCommitHash">
+    <!-- Get the latest commit hash -->
+    <Exec Command="git rev-parse HEAD 2>&amp;1" StandardOutputImportance="Low" IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" ConsoleToMSBuild="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="LatestCommit" />
+      <Output TaskParameter="ExitCode" PropertyName="LatestCommitExitCode" />
+    </Exec>
+    <!-- We shouldn't fail the build if we can't retreive the commit hash, so in this case just set it to N/A -->
+    <PropertyGroup Condition="'$(LatestCommitExitCode)'!='0'">
+      <LatestCommit>N/A</LatestCommit>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="BuildPlatform" DependsOnTargets="GetLatestCommitHash">
+    <Error Text="Please specify the RID for the aspnetcore platform via PlatformRID: {x64|x86}." Condition="'$(PlatformRID)' == ''"/>
+
+    <!-- Clear working directory -->
+    <RemoveDir Directories="$(_WorkRoot)" />
+
+    <!-- Move to working dir -->
+    <PropertyGroup>
+      <PlatformWorkDirectory>$(_WorkRoot)Platform\</PlatformWorkDirectory>
+      <PlatformOutputDirectory>$(_WorkRoot)Publish\</PlatformOutputDirectory>
+    </PropertyGroup>
+    <ItemGroup>
+      <PlatformFiles Include="$(_TemplatesDirectory)Platform\**\*" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(PlatformFiles)" DestinationFolder="$(PlatformWorkDirectory)\%(RecursiveDir)" />
+    <Copy SourceFiles="$(_SrcDirectory)Directory.Build.props" DestinationFolder="$(_WorkRoot)" />
+
+    <!-- Set _Target=Restore so the project will be re-evaluated to include Internal.AspNetCore.Sdk MSBuild properties on the next step. -->
+    <MSBuild Projects="$(PlatformWorkDirectory)Platform.csproj"
+      Targets="Restore"
+      Properties="Configuration=$(Configuration);RuntimeIdentifier=$(PlatformRID);MicrosoftAspNetCoreAllVersion=2.1.0-preview1-27538;DotNetRestoreSources=$(ArtifactsDir)build;DotNetRestoreSourcePropsPath=$(GeneratedRestoreSourcesPropsPath);_Target=Restore" />
+
+    <!-- Publish -->
+    <MSBuild Projects="$(PlatformWorkDirectory)Platform.csproj"
+      Targets="Publish"
+      Properties="Configuration=$(Configuration);GenerateRuntimeConfigurationFiles=true;RuntimeIdentifier=$(PlatformRID);SelfContained=false;PublishDir=$(PlatformOutputDirectory);DotNetRestoreSourcePropsPath=$(GeneratedRestoreSourcesPropsPath);AspNetUniverseBuildOffline=true" />
+
+    <!-- Clean deps.json -->
+    <RepoTasks.TrimDeps DepsFiles="$(PlatformOutputDirectory)/Platform.deps.json" />
+
+    <!-- Clean up artifacts that publish generates which we don't need -->
+    <ItemGroup>
+      <ToDelete Include="$(PlatformOutputDirectory)\Platform" />
+      <ToDelete Include="$(PlatformOutputDirectory)\Platform.dll" />
+      <ToDelete Include="$(PlatformOutputDirectory)\Platform.pdb" />
+    </ItemGroup>
+
+    <Delete Files="@(ToDelete)" />
+
+    <!-- Rename deps file -->
+    <Move SourceFiles="$(PlatformOutputDirectory)\Platform.deps.json"
+          DestinationFiles="$(PlatformOutputDirectory)\Microsoft.AspNetCore.All.deps.json" />
+
+    <!-- Rename runtimeconfig.json file -->
+    <Move SourceFiles="$(PlatformOutputDirectory)\Platform.runtimeconfig.json"
+          DestinationFiles="$(PlatformOutputDirectory)\Microsoft.AspNetCore.All.runtimeconfig.json" />
+
+    <!-- Generate Runtime Graph -->
+    <PropertyGroup>
+
+      <RuntimeGraphGeneratorRuntime Condition="$([MSBuild]::IsOSPlatform('Windows'))">win</RuntimeGraphGeneratorRuntime>
+      <RuntimeGraphGeneratorRuntime Condition="$([MSBuild]::IsOSPlatform('Linux'))">linux</RuntimeGraphGeneratorRuntime>
+      <RuntimeGraphGeneratorRuntime Condition="$([MSBuild]::IsOSPlatform('OSX'))">osx</RuntimeGraphGeneratorRuntime>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PlatformAssetsFile Include="$(PlatformWorkDirectory)**\project.assets.json" />
+    </ItemGroup>
+
+    <ProcessSharedFrameworkDeps
+      AssetsFilePath="@(PlatformAssetsFile)"
+      DepsFilePath="$(PlatformOutputDirectory)\Microsoft.AspNetCore.All.deps.json"
+      Runtime="$(RuntimeGraphGeneratorRuntime)" />
+
+    <!-- Generate .version file -->
+    <ItemGroup>
+      <VersionLines Include="$(LatestCommit)" />
+      <VersionLines Include="$(PackageVersion)" />
+    </ItemGroup>
+
+    <WriteLinesToFile
+      File="$(PlatformOutputDirectory)\.version"
+      Lines="@(VersionLines)"
+      Overwrite="true" />
+
+    <ItemGroup>
+      <OutputZipFiles Include="$(PlatformOutputDirectory)**\*" />
+    </ItemGroup>
+
+    <!-- Create zip -->
+    <ZipArchive File="$(ArtifactsDir)aspnetcore-all-$(PackageVersion)-$(PlatformRID).zip" SourceFiles="@(OutputZipFiles)" WorkingDirectory="$(PlatformOutputDirectory)" Overwrite="true"/>
+  </Target>
+</Project>
