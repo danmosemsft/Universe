@@ -44,10 +44,6 @@
     <ExternalDependency Include="Microsoft.NETCore.DotNetHostPolicy" Version="$(CoreSetupPackageVersion)" Source="$(DotNetCoreFeed)" Mirror="true" />
     <ExternalDependency Include="Microsoft.NETCore.DotNetHostResolver" Version="$(CoreSetupPackageVersion)" Source="$(DotNetCoreFeed)" Mirror="true" />
     <ExternalDependency Include="Microsoft.NETCore.Platforms" Version="2.1.0-preview1-25831-01" Source="$(DotNetCoreFeed)" Mirror="true" />
-    <ExternalDependency Include="System.Memory" Version="$(CoreFxVersion)" Source="$(DotNetCoreFeed)" Mirror="true" />
-    <ExternalDependency Include="System.Numerics.Vectors" Version="$(CoreFxVersion)" Source="$(DotNetCoreFeed)" Mirror="true" />
-    <ExternalDependency Include="System.Runtime.CompilerServices.Unsafe" Version="$(CoreFxVersion)" Source="$(DotNetCoreFeed)" Mirror="true" />
-    <ExternalDependency Include="System.Threading.Channels" Version="$(CoreFxVersion)" Source="$(DotNetCoreFeed)" Private="true" Mirror="true" />
     <ExternalDependency Include="runtime.win-x86.Microsoft.NETCore.DotNetAppHost" Version="$(CoreSetupPackageVersion)" Source="$(DotNetCoreFeed)" Mirror="true" />
     <ExternalDependency Include="runtime.win-x86.Microsoft.NETCore.DotNetHostResolver" Version="$(CoreSetupPackageVersion)" Source="$(DotNetCoreFeed)" Mirror="true" />
     <ExternalDependency Include="runtime.win-x86.Microsoft.NETCore.DotNetHostPolicy" Version="$(CoreSetupPackageVersion)" Source="$(DotNetCoreFeed)" Mirror="true" />
@@ -68,7 +64,10 @@
     <ExternalDependency Include="runtime.linux-x64.Microsoft.NETCore.App" Version="$(CoreSetupPackageVersion)" Source="$(DotNetCoreFeed)" Mirror="true" />
     <ExternalDependency Include="runtime.linux-x64.Microsoft.NETCore.DotNetAppHost" Version="$(CoreSetupPackageVersion)" Source="$(DotNetCoreFeed)" Mirror="true" />
     <ExternalDependency Include="runtime.linux-x64.Microsoft.NETCore.DotNetHost" Version="$(CoreSetupPackageVersion)" Source="$(DotNetCoreFeed)" Mirror="true" />
-    <ExternalDependency Include="System.Memory" Version="4.4.0-preview3-25519-03" Source="$(DotNetCoreFeed)" Mirror="true" />
+    <ExternalDependency Include="System.Memory" Version="$(CoreFxVersion)" Source="$(DotNetCoreFeed)" Mirror="true" />
+    <ExternalDependency Include="System.Numerics.Vectors" Version="$(CoreFxVersion)" Source="$(DotNetCoreFeed)" Mirror="true" />
+    <ExternalDependency Include="System.Runtime.CompilerServices.Unsafe" Version="$(CoreFxVersion)" Source="$(DotNetCoreFeed)" Mirror="true" />
+    <ExternalDependency Include="System.Threading.Channels" Version="$(CoreFxVersion)" Source="$(DotNetCoreFeed)" Private="true" Mirror="true" />
   </ItemGroup>
 
   <!-- CoreFX labs -->
