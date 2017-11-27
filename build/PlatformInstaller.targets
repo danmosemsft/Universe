@@ -92,7 +92,7 @@
 
     <!-- Create layout: Extract archive if given -->
     <MakeDir Directories="$(_WorkRoot)package_root\" />
-    <Exec Command="tar -xzf $(RSArchive) -C $(_WorkRoot)package_root\" Condition="'$(RSArchive)'!=''" />
+    <Exec Command="tar -xzf $(PlatformArchive) -C $(_WorkRoot)package_root\" Condition="'$(PlatformArchive)'!=''" />
 
     <!-- Create layout: Place changelog -->
     <Copy
@@ -157,25 +157,25 @@
 
     <!-- Common installer parameters -->
     <JsonPeek Query="$.short_description" JsonInputPath="$(PlatformDebConfigFile)">
-      <Output TaskParameter="Result" ItemName="_RSInstallerSummary" />
+      <Output TaskParameter="Result" ItemName="_PlatformInstallerSummary" />
     </JsonPeek>
     <JsonPeek Query="$.long_description" JsonInputPath="$(PlatformDebConfigFile)">
-      <Output TaskParameter="Result" ItemName="_RSDescription" />
+      <Output TaskParameter="Result" ItemName="_PlatformDescription" />
     </JsonPeek>
     <JsonPeek Query="$.license.type" JsonInputPath="$(PlatformDebConfigFile)">
-      <Output TaskParameter="Result" ItemName="_RSLicense" />
+      <Output TaskParameter="Result" ItemName="_PlatformLicense" />
     </JsonPeek>
     <JsonPeek Query="$.release.package_revision" JsonInputPath="$(PlatformDebConfigFile)">
-      <Output TaskParameter="Result" ItemName="_RSPackageRevision" />
+      <Output TaskParameter="Result" ItemName="_PlatformPackageRevision" />
     </JsonPeek>
     <JsonPeek Query="$.homepage" JsonInputPath="$(PlatformDebConfigFile)">
-      <Output TaskParameter="Result" ItemName="_RSHomepage" />
+      <Output TaskParameter="Result" ItemName="_PlatformHomepage" />
     </JsonPeek>
     <JsonPeek Query="$.maintainer_name" JsonInputPath="$(PlatformDebConfigFile)">
-      <Output TaskParameter="Result" ItemName="_RSMaintainerName" />
+      <Output TaskParameter="Result" ItemName="_PlatformMaintainerName" />
     </JsonPeek>
     <JsonPeek Query="$.maintainer_email" JsonInputPath="$(PlatformDebConfigFile)">
-      <Output TaskParameter="Result" ItemName="_RSMaintainerEmail" />
+      <Output TaskParameter="Result" ItemName="_PlatformMaintainerEmail" />
     </JsonPeek>
     <JsonPeek Query="$.short_description" JsonInputPath="$(HostingDebConfigFile)">
       <Output TaskParameter="Result" ItemName="_HostingSummary" />
@@ -200,61 +200,50 @@
     </JsonPeek>
 
     <ItemGroup>
-      <RHStoreDirectories Include="$(RHInstallerInstallRoot)additionalDeps" />
-      <RHStoreDirectories Include="$(RHInstallerInstallRoot)store" />
-      <GenericStoreDirectories Include="$(GenericInstallerInstallRoot)additionalDeps" />
-      <GenericStoreDirectories Include="$(GenericInstallerInstallRoot)store" />
-      <RSDependencies Include="$(PlatformInstallerName)-2.0.0">
-        <Version>2.0.0</Version>
-      </RSDependencies>
       <HostingDependencies Include="$(PlatformInstallerName)-$(PackageVersion)">
         <Version>$(PackageVersion)</Version>
       </HostingDependencies>
-      <HostingDependencies Include="dotnet-runtime-$(MicrosoftNETCoreApp20PackageVersion)">
-        <Version>$(MicrosoftNETCoreApp20PackageVersion)</Version>
+      <HostingDependencies Include="dotnet-runtime-$(CoreSetupPackageVersion)">
+        <Version>$(CoreSetupPackageVersion)</Version>
       </HostingDependencies>
+      <RHPlatformDirectories Include="$(RHInstallerInstallRoot)shared" />
+      <GenericPlatformDirectories Include="$(GenericInstallerInstallRoot)shared" />
     </ItemGroup>
 
     <PropertyGroup>
       <HostingFPMArguments>@(HostingDependencies->' -d &quot;%(Identity) &gt;= %(Version)&quot;', ' ')</HostingFPMArguments>
-      <RSDependencyArguments>@(RSDependencies->' -d &quot;%(Identity) &gt;= %(Version)&quot;', ' ')</RSDependencyArguments>
-      <RHRSArguments>$(RSDependencyArguments) @(RHStoreDirectories->' --directories &quot;%(FullPath)&quot;', ' ')</RHRSArguments>
-      <GenericRSArguments>$(RSDependencyArguments) @(GenericStoreDirectories->' --directories &quot;%(FullPath)&quot;', ' ')</GenericRSArguments>
+      <RHPlatformArguments>@(RHPlatformDirectories->' --directories &quot;%(FullPath)&quot;', ' ')</RHPlatformArguments>
+      <GenericPlatformArguments>@(GenericPlatformDirectories->' --directories &quot;%(FullPath)&quot;', ' ')</GenericPlatformArguments>
 
-      <CommonArguments>Image=$(Image);RPMVendor=$(RPMVendor)</CommonArguments>
+      <CommonArguments>Image=$(Image);RPMVendor=$(RPMVendor);RPMVersion=$(PackageVersion)</CommonArguments>
       <CommonGenericArguments>RPMFileSuffix=rhel.7-x64.rpm;RPMInstallRoot=$(GenericInstallerInstallRoot)</CommonGenericArguments>
       <CommonRHArguments>RPMFileSuffix=rh.rhel.7-x64.rpm;RPMInstallRoot=$(RHInstallerInstallRoot)</CommonRHArguments>
 
-      <CommonRSArguments>MaintainerName=@(_RSMaintainerName);MaintainerEmail=@(_RSMaintainerEmail)</CommonRSArguments>
-      <CommonRSArguments>$(CommonRSArguments);RPMInstallerPrefix=$(PlatformInstallerName);RPMRevision=@(_RSPackageRevision)</CommonRSArguments>
-      <CommonRSArguments>$(CommonRSArguments);RPMSummary=@(_RSInstallerSummary);RPMDescription=@(_RSDescription)</CommonRSArguments>
-      <CommonRSArguments>$(CommonRSArguments);RPMLicense=@(_RSLicense);RPMHomepage=@(_RSHomepage)</CommonRSArguments>
+      <CommonPlatformArguments>MaintainerName=@(_PlatformMaintainerName);MaintainerEmail=@(_PlatformMaintainerEmail)</CommonPlatformArguments>
+      <CommonPlatformArguments>$(CommonPlatformArguments);RPMInstallerPrefix=$(PlatformInstallerName);RPMRevision=@(_PlatformPackageRevision)</CommonPlatformArguments>
+      <CommonPlatformArguments>$(CommonPlatformArguments);RPMSummary=@(_PlatformInstallerSummary);RPMDescription=@(_PlatformDescription)</CommonPlatformArguments>
+      <CommonPlatformArguments>$(CommonPlatformArguments);RPMLicense=@(_PlatformLicense);RPMHomepage=@(_PlatformHomepage)</CommonPlatformArguments>
+      <CommonPlatformArguments>$(CommonPlatformArguments);PlatformArchive=$(PlatformLinuxArchiveFilePath)</CommonPlatformArguments>
 
       <CommonHostingArguments>$(CommonArguments);MaintainerName=@(_HostingMaintainerName);MaintainerEmail=@(_HostingMaintainerEmail)</CommonHostingArguments>
       <CommonHostingArguments>$(CommonHostingArguments);RPMInstallerPrefix=$(HostingInstallerName);RPMRevision=@(_HostingRevision)</CommonHostingArguments>
       <CommonHostingArguments>$(CommonHostingArguments);RPMSummary=@(_HostingSummary);RPMDescription=@(_HostingDescription)</CommonHostingArguments>
       <CommonHostingArguments>$(CommonHostingArguments);RPMLicense=@(_HostingLicense);RPMHomepage=@(_HostingHomepage)</CommonHostingArguments>
+      <CommonHostingArguments>$(CommonHostingArguments);RPMArguments=$(HostingFPMArguments)</CommonHostingArguments>
 
-      <RS_RPM_Arguments>$(CommonArguments);$(CommonGenericArguments);$(CommonRSArguments)</RS_RPM_Arguments>
-      <RS_RPM_Arguments>$(RS_RPM_Arguments);RSArchive=$(PlatformLinuxArchiveFilePath);RPMVersion=$(PackageVersion);RPMArguments=$(GenericRSArguments)</RS_RPM_Arguments>
-
-      <Hosting_RPM_RedHat_Arguments>$(CommonArguments);$(CommonGenericArguments);$(CommonHostingArguments)</Hosting_RPM_RedHat_Arguments>
-      <Hosting_RPM_RedHat_Arguments>$(Hosting_RPM_RedHat_Arguments);RPMVersion=$(PackageVersion);RPMArguments=$(HostingFPMArguments)</Hosting_RPM_RedHat_Arguments>
-
-      <RS_RPM_RedHat_Arguments>$(CommonArguments);$(CommonRHArguments);$(CommonRSArguments)</RS_RPM_RedHat_Arguments>
-      <RS_RPM_RedHat_Arguments>$(RS_RPM_RedHat_Arguments);RSArchive=$(PlatformLinuxArchiveFilePath);RPMVersion=$(PackageVersion);RPMArguments=$(RHRSArguments)</RS_RPM_RedHat_Arguments>
-
-      <Hosting_RPM_Arguments>$(CommonArguments);$(CommonRHArguments);$(CommonHostingArguments)</Hosting_RPM_Arguments>
-      <Hosting_RPM_Arguments>$(Hosting_RPM_Arguments);RPMVersion=$(PackageVersion);RPMArguments=$(HostingFPMArguments)</Hosting_RPM_Arguments>
+      <Platform_RPM_Arguments>$(CommonArguments);$(CommonGenericArguments);$(CommonPlatformArguments);RPMArguments=$(GenericPlatformArguments)</Platform_RPM_Arguments>
+      <Hosting_RPM_Arguments>$(CommonArguments);$(CommonGenericArguments);$(CommonHostingArguments)</Hosting_RPM_Arguments>
+      <Platform_RPM_RedHat_Arguments>$(CommonArguments);$(CommonRHArguments);$(CommonPlatformArguments);RPMArguments=$(RHPlatformArguments)</Platform_RPM_RedHat_Arguments>
+      <Hosting_RPM_RedHat_Arguments>$(CommonArguments);$(CommonRHArguments);$(CommonHostingArguments)</Hosting_RPM_RedHat_Arguments>
     </PropertyGroup>
 
-    <!-- General runtime store -->
-    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateRpm" Properties="$(RS_RPM_Arguments)" />
+    <!-- General platform -->
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateRpm" Properties="$(Platform_RPM_Arguments)" />
     <!-- General hosting bundle -->
     <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateRpm" Properties="$(Hosting_RPM_RedHat_Arguments)" />
 
-    <!-- RH runtime store -->
-    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateRpm" Properties="$(RS_RPM_RedHat_Arguments)" />
+    <!-- RH platform -->
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateRpm" Properties="$(Platform_RPM_RedHat_Arguments)" />
     <!-- RH hosting bundle -->
     <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateRpm" Properties="$(Hosting_RPM_Arguments)" />
 
@@ -269,7 +258,7 @@
 
     <!-- Create layout: Extract archive if given -->
     <MakeDir Directories="$(_WorkLayoutDir)package_root\" />
-    <Exec Command="tar -xzf $(RSArchive) -C $(_WorkLayoutDir)package_root/" Condition="'$(RSArchive)'!=''" />
+    <Exec Command="tar -xzf $(PlatformArchive) -C $(_WorkLayoutDir)package_root/" Condition="'$(PlatformArchive)'!=''" />
 
     <!-- Create layout: Generate and Place debian_config.json -->
     <Copy
@@ -287,7 +276,7 @@
     <!-- Update versions -->
     <RepoTasks.ReplaceInFile Filename="$(_WorkLayoutDir)debian_config.json" Items="@(DebConfigItems)" />
 
-    <!-- Build Runtime Store and Hosting Bundle Deb package -->
+    <!-- Build Platform and Hosting Bundle Deb package -->
 
     <!--
       Note: KOREBUILD_DOTNET_FEED_CREDENTIAL is intentionally NOT an MSBuild variable.
@@ -310,7 +299,7 @@
       ./build.sh /t:RunDebTool"
       ContinueOnError="WarnAndContinue" />
 
-    <!-- Copy Runtime Store and Hosting Bundle packages to output -->
+    <!-- Copy Platform and Hosting Bundle packages to output -->
     <ItemGroup>
       <GeneratedDebFiles Include="$(_WorkOutputDir)/*.deb" />
     </ItemGroup>
@@ -327,8 +316,8 @@
 
   <Target Name="_GenerateDebOnPlatform">
     <PropertyGroup>
-      <CommonRSArguments>Image=$(Image);DebConfig=$(PlatformDebConfigFile);DebPrefix=$(PlatformInstallerName)</CommonRSArguments>
-      <CommonHostingArguments>Image=$(Image);DebConfig=$(HostingDebConfigFile);DotnetVersion=$(MicrosoftNETCoreApp20PackageVersion);DebPrefix=$(HostingInstallerName)</CommonHostingArguments>
+      <CommonPlatformArguments>Image=$(Image);DebConfig=$(PlatformDebConfigFile);DebPrefix=$(PlatformInstallerName)</CommonPlatformArguments>
+      <CommonHostingArguments>Image=$(Image);DebConfig=$(HostingDebConfigFile);DotnetVersion=$(CoreSetupPackageVersion);DebPrefix=$(HostingInstallerName)</CommonHostingArguments>
     </PropertyGroup>
 
     <!-- Build Docker Image -->
@@ -337,7 +326,7 @@
     <MSBuild
       Projects="$(MSBuildProjectFullPath)"
       Targets="_GenerateDeb"
-      Properties="$(CommonRSArguments);RSArchive=$(PlatformLinuxArchiveFilePath);DebVersion=$(Version)" />
+      Properties="$(CommonPlatformArguments);PlatformArchive=$(PlatformLinuxArchiveFilePath);DebVersion=$(Version)" />
     <MSBuild
       Projects="$(MSBuildProjectFullPath)"
       Targets="_GenerateDeb"
