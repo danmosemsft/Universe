@@ -69,6 +69,7 @@
     <PropertyGroup>
       <PlatformWorkDirectory>$(_WorkRoot)Platform\</PlatformWorkDirectory>
       <PlatformOutputDirectory>$(_WorkRoot)Publish\</PlatformOutputDirectory>
+      <PlatformPublishDirectory>$(PlatformOutputDirectory)shared\Microsoft.AspNetCore.All\$(PackageVersion)\</PlatformPublishDirectory>
     </PropertyGroup>
 
     <ItemGroup>
@@ -86,27 +87,27 @@
     <!-- Publish -->
     <MSBuild Projects="$(PlatformWorkDirectory)Platform.csproj"
       Targets="Publish"
-      Properties="Configuration=$(Configuration);GenerateRuntimeConfigurationFiles=true;RuntimeIdentifier=$(PlatformRID);SelfContained=false;PublishDir=$(PlatformOutputDirectory);DotNetRestoreSourcePropsPath=$(GeneratedRestoreSourcesPropsPath);AspNetUniverseBuildOffline=true" />
+      Properties="Configuration=$(Configuration);GenerateRuntimeConfigurationFiles=true;RuntimeIdentifier=$(PlatformRID);SelfContained=false;PublishDir=$(PlatformPublishDirectory);DotNetRestoreSourcePropsPath=$(GeneratedRestoreSourcesPropsPath);AspNetUniverseBuildOffline=true" />
 
     <!-- Clean deps.json -->
-    <RepoTasks.TrimDeps DepsFiles="$(PlatformOutputDirectory)/Platform.deps.json" />
+    <RepoTasks.TrimDeps DepsFiles="$(PlatformPublishDirectory)/Platform.deps.json" />
 
     <!-- Clean up artifacts that publish generates which we don't need -->
     <ItemGroup>
-      <ToDelete Include="$(PlatformOutputDirectory)\Platform" />
-      <ToDelete Include="$(PlatformOutputDirectory)\Platform.dll" />
-      <ToDelete Include="$(PlatformOutputDirectory)\Platform.pdb" />
+      <ToDelete Include="$(PlatformPublishDirectory)\Platform" />
+      <ToDelete Include="$(PlatformPublishDirectory)\Platform.dll" />
+      <ToDelete Include="$(PlatformPublishDirectory)\Platform.pdb" />
     </ItemGroup>
 
     <Delete Files="@(ToDelete)" />
 
     <!-- Rename deps file -->
-    <Move SourceFiles="$(PlatformOutputDirectory)\Platform.deps.json"
-          DestinationFiles="$(PlatformOutputDirectory)\Microsoft.AspNetCore.All.deps.json" />
+    <Move SourceFiles="$(PlatformPublishDirectory)\Platform.deps.json"
+          DestinationFiles="$(PlatformPublishDirectory)\Microsoft.AspNetCore.All.deps.json" />
 
     <!-- Rename runtimeconfig.json file -->
-    <Move SourceFiles="$(PlatformOutputDirectory)\Platform.runtimeconfig.json"
-          DestinationFiles="$(PlatformOutputDirectory)\Microsoft.AspNetCore.All.runtimeconfig.json" />
+    <Move SourceFiles="$(PlatformPublishDirectory)\Platform.runtimeconfig.json"
+          DestinationFiles="$(PlatformPublishDirectory)\Microsoft.AspNetCore.All.runtimeconfig.json" />
 
     <!-- Generate Runtime Graph -->
     <PropertyGroup>
@@ -121,7 +122,7 @@
 
     <ProcessSharedFrameworkDeps
       AssetsFilePath="@(PlatformAssetsFile)"
-      DepsFilePath="$(PlatformOutputDirectory)\Microsoft.AspNetCore.All.deps.json"
+      DepsFilePath="$(PlatformPublishDirectory)\Microsoft.AspNetCore.All.deps.json"
       Runtime="$(RuntimeGraphGeneratorRuntime)" />
 
     <!-- Generate .version file -->
@@ -131,7 +132,7 @@
     </ItemGroup>
 
     <WriteLinesToFile
-      File="$(PlatformOutputDirectory)\.version"
+      File="$(PlatformPublishDirectory)\.version"
       Lines="@(VersionLines)"
       Overwrite="true" />
 
@@ -139,7 +140,17 @@
       <OutputZipFiles Include="$(PlatformOutputDirectory)**\*" />
     </ItemGroup>
 
-    <!-- Create zip -->
-    <ZipArchive File="$(ArtifactsDir)aspnetcore-all-$(PackageVersion)-$(PlatformRID).zip" SourceFiles="@(OutputZipFiles)" WorkingDirectory="$(PlatformOutputDirectory)" Overwrite="true"/>
+    <!-- Create archive -->
+    <ZipArchive
+      File="$(ArtifactsDir)aspnetcore-all-$(PackageVersion)-$(PlatformRID).zip"
+      SourceFiles="@(OutputZipFiles)"
+      WorkingDirectory="$(PlatformOutputDirectory)"
+      Overwrite="true"
+      Condition="$([MSBuild]::IsOSPlatform('Windows'))"/>
+    <Exec
+      Command="tar -czf $(ArtifactsDir)aspnetcore-all-$(PackageVersion)-$(PlatformRID).tar.gz -C $(PlatformOutputDirectory) ."
+      WorkingDirectory="$(PlatformOutputDirectory)"
+      Condition="$([MSBuild]::IsOSPlatform('Linux')) OR $([MSBuild]::IsOSPlatform('OSX'))"/>
+
   </Target>
 </Project>
