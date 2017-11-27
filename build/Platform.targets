@@ -1,9 +1,11 @@
 <Project>
+  <Import Project="common.props" />
+
   <PropertyGroup>
     <_WorkRoot>$(RepositoryRoot).w\</_WorkRoot>
     <_SrcDirectory>$(RepositoryRoot)src\</_SrcDirectory>
     <_AllMetapackageDirectory>$(_SrcDirectory)Microsoft.AspNetCore.All\</_AllMetapackageDirectory>
-    <_TemplatesDirectory>$(MSBuildThisFileDirectory)templates\</_TemplatesDirectory>
+    <_TemplatesDirectory>$(MSBuildThisFileDirectory)tools\templates\</_TemplatesDirectory>
   </PropertyGroup>
 
   <Target Name="BuildMetapackage" DependsOnTargets="ResolveRepoInfo">

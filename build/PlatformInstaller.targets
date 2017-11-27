@@ -4,7 +4,7 @@
     <_DockerDir>$(MSBuildThisFileDirectory)tools\docker\</_DockerDir>
     <_PackagingDir>$(MSBuildThisFileDirectory)tools\packaging\</_PackagingDir>
     <_DebToolDir>$(MSBuildThisFileDirectory)tools\dotnet-deb-tool-consumer\</_DebToolDir>
-    <_RuntimeStoreSource>$(RepositoryRoot).deps\Signed\Store\</_RuntimeStoreSource>
+    <_PlatformSource>$(RepositoryRoot).deps\Signed\Platform\</_PlatformSource>
     <_InstallerSource>$(RepositoryRoot).deps\Installers\</_InstallerSource>
     <_WorkRoot>$(RepositoryRoot).w\</_WorkRoot>
     <_WorkLayoutDir>$(_WorkRoot).l\</_WorkLayoutDir>
@@ -12,20 +12,19 @@
     <_DockerRootDirectory>/opt/code/</_DockerRootDirectory>
     <_InstallersOutputDir>$(ArtifactsDir)installers\</_InstallersOutputDir>
 
-    <RSInstallerName>aspnetcore-store</RSInstallerName>
+    <PlatformInstallerName>aspnetcore-all</PlatformInstallerName>
     <HostingInstallerName>dotnet-hosting</HostingInstallerName>
     <HostingArchiveName>$(HostingInstallerName)-$(PackageVersion)-linux-x64.tar.gz</HostingArchiveName>
-    <RSDebConfigFile>$(_PackagingDir)store_debian_config.json</RSDebConfigFile>
+    <PlatformDebConfigFile>$(_PackagingDir)platform_debian_config.json</PlatformDebConfigFile>
     <HostingDebConfigFile>$(_PackagingDir)hosting_debian_config.json</HostingDebConfigFile>
 
     <PublicCoreFeedPrefix>https://dotnetcli.blob.core.windows.net/dotnet</PublicCoreFeedPrefix>
     <CoreFeedPrefix Condition="'$(KOREBUILD_DOTNET_FEED_UNCACHED)'!=''">$(KOREBUILD_DOTNET_FEED_UNCACHED)</CoreFeedPrefix>
     <CoreFeedPrefix Condition="'$(CoreFeedPrefix)'==''">$(PublicCoreFeedPrefix)</CoreFeedPrefix>
 
-    <RuntimeStore200LinkPrefix>$(PublicCoreFeedPrefix)/aspnetcore/store/2.0.0-26452/Build.RS.</RuntimeStore200LinkPrefix>
-    <RuntimeTargzLink>$(CoreFeedPrefix)/Runtime/$(MicrosoftNETCoreApp20PackageVersion)/dotnet-runtime-$(MicrosoftNETCoreApp20PackageVersion)-linux-x64.tar.gz</RuntimeTargzLink>
-    <RuntimeStoreArchivePrefix>$(_RuntimeStoreSource)aspnetcore-store-$(PackageVersion)-</RuntimeStoreArchivePrefix>
-    <RuntimeStoreLinuxArchiveFilePath>$(RuntimeStoreArchivePrefix)linux-x64.tar.gz</RuntimeStoreLinuxArchiveFilePath>
+    <RuntimeTargzLink>$(CoreFeedPrefix)/Runtime/$(CoreSetupPackageVersion)/dotnet-runtime-$(CoreSetupPackageVersion)-linux-x64.tar.gz</RuntimeTargzLink>
+    <PlatformArchivePrefix>$(_PlatformSource)aspnetcore-all-$(PackageVersion)-</PlatformArchivePrefix>
+    <PlatformLinuxArchiveFilePath>$(PlatformArchivePrefix)linux-x64.tar.gz</PlatformLinuxArchiveFilePath>
   </PropertyGroup>
 
   <Target Name="BuildInstallers" DependsOnTargets="GenerateTargzs;GenerateRpms;GenerateDebs;GenerateRelabledInstallers" />
@@ -41,16 +40,11 @@
     <Error Text="Docker host must be using Linux containers." Condition="'$(DockerHostOS)' != 'linux'"/>
 
     <Error
-      Text="Linux archive not found. Expected it to exist in $(RuntimeStoreLinuxArchiveFilePath)."
-      Condition="!Exists('$(RuntimeStoreLinuxArchiveFilePath)')" />
+      Text="Linux archive not found. Expected it to exist in $(PlatformLinuxArchiveFilePath)."
+      Condition="!Exists('$(PlatformLinuxArchiveFilePath)')" />
   </Target>
 
-  <Target Name="_EnsureInstallerDirectory" >
-    <!-- Download dotnet installers -->
-    <MakeDir Directories="$(_InstallerSource)" />
-  </Target>
-
-  <Target Name="_DownloadInstallers" DependsOnTargets="_EnsureInstallerDirectory">
+  <Target Name="_DownloadInstallers">
     <!-- Download dotnet installers -->
     <MakeDir Directories="$(_InstallerSource)" />
     <!--
@@ -58,96 +52,27 @@
       MSBuild doesn't to the substitution correctly because the string contains %,
       so we'll let bash do it instead.
     -->
-    <Exec Command="curl --fail -sSL &quot;$(RuntimeTargzLink)$KOREBUILD_DOTNET_FEED_CREDENTIAL&quot; -o $(_InstallerSource)dotnet-runtime-$(MicrosoftNETCoreApp20PackageVersion)-linux-x64.tar.gz" />
-    <Exec Command="curl --fail -sSL &quot;$(RuntimeStore200LinkPrefix)linux.tar.gz&quot; -o $(_InstallerSource)Build.RS.linux.tar.gz" />
+    <Exec Command="curl --fail -sSL &quot;$(RuntimeTargzLink)$KOREBUILD_DOTNET_FEED_CREDENTIAL&quot; -o $(_InstallerSource)dotnet-runtime-$(CoreSetupPackageVersion)-linux-x64.tar.gz" />
   </Target>
 
   <Target Name="_GenerateTargz">
+  </Target>
+
+  <Target Name="GenerateTargzs" DependsOnTargets="_EnsureInstallerPrerequisites;_DownloadInstallers">
+    <ItemGroup>
+      <_DependentArchives Include="$(_InstallerSource)dotnet-runtime-$(CoreSetupPackageVersion)-linux-x64.tar.gz" />
+    </ItemGroup>
+
     <!-- Clear working directory -->
     <RemoveDir Directories="$(_WorkRoot)" />
     <MakeDir Directories="$(_WorkRoot)" />
 
     <!-- Create layout: Aspnet Hosting Bundle -->
-    <Exec Command="tar -xzf $(RSArchive) -C $(_WorkRoot)" />
-
-    <ItemGroup>
-      <Archives Include="$(DependentArchives)" />
-    </ItemGroup>
-
-    <Exec Command="tar -xzf %(Archives.Identity) -C $(_WorkRoot)" />
+    <Exec Command="tar -xzf $(PlatformLinuxArchiveFilePath) -C $(_WorkRoot)" />
+    <Exec Command="tar -xzf %(_DependentArchives.Identity) -C $(_WorkRoot)" />
 
     <!-- Create Aspnet Hosting Bundle tar.gz -->
-    <Exec Command="tar -czvf $(_InstallersOutputDir)$(OutputArchiveName) ." WorkingDirectory="$(_WorkRoot)"/>
-  </Target>
-
-  <Target Name="_GenerateZip">
-    <!-- Clear working directory -->
-    <RemoveDir Directories="$(_WorkRoot)" />
-    <MakeDir Directories="$(_WorkRoot)" />
-
-    <!-- Create layout -->
-    <UnzipArchive File="$(RSArchive)" Destination="$(_WorkRoot)" />
-
-    <ItemGroup>
-      <Archives Include="$(DependentArchives)" />
-    </ItemGroup>
-
-    <UnzipArchive File="%(Archives.Identity)" Destination="$(_WorkRoot)" />
-
-    <ItemGroup>
-      <ArchiveFiles Include="$(_WorkRoot)**\*" />
-    </ItemGroup>
-
-    <!-- Create Zip -->
-    <ZipArchive File="$(_InstallersOutputDir)$(OutputArchiveName)" SourceFiles="@(ArchiveFiles)" WorkingDirectory="$(_WorkRoot)" Overwrite="true" />
-  </Target>
-
-  <Target Name="GenerateTargzs" DependsOnTargets="_EnsureInstallerPrerequisites;_DownloadInstallers">
-    <ItemGroup>
-      <_DependentArchives Include="$(_InstallerSource)dotnet-runtime-$(MicrosoftNETCoreApp20PackageVersion)-linux-x64.tar.gz" />
-      <_DependentArchives Include="$(_InstallerSource)Build.RS.linux.tar.gz" />
-    </ItemGroup>
-
-    <MSBuild
-      Projects="$(MSBuildProjectFullPath)"
-      Targets="_GenerateTargz"
-      Properties="DependentArchives=@(_DependentArchives);RSArchive=$(RuntimeStoreLinuxArchiveFilePath);OutputArchiveName=$(HostingArchiveName)" />
-  </Target>
-
-  <Target Name="_DownloadAdditionalRSZips" DependsOnTargets="_EnsureInstallerDirectory;_DownloadInstallers">
-    <Exec Command="curl --fail -sSL &quot;$(RuntimeStore200LinkPrefix)osx.tar.gz&quot; -o $(_InstallerSource)Build.RS.osx.tar.gz" />
-    <Exec Command="curl --fail -sSL &quot;$(RuntimeStore200LinkPrefix)winx64.zip&quot; -o $(_InstallerSource)Build.RS.winx64.zip" />
-    <Exec Command="curl --fail -sSL &quot;$(RuntimeStore200LinkPrefix)winx86.zip&quot; -o $(_InstallerSource)Build.RS.winx86.zip" />
-  </Target>
-
-  <Target Name="GenerateCumulativeArchives" DependsOnTargets="_EnsureInstallerPrerequisites;_DownloadAdditionalRSZips">
-    <!-- Temporary: Generate time stamp free cumulative zips with old naming scheme -->
-
-    <ItemGroup>
-      <TargzArchives Include="Build.RS.linux.tar.gz">
-        <RSArchive>$(RuntimeStoreArchivePrefix)linux-x64.tar.gz</RSArchive>
-      </TargzArchives>
-      <TargzArchives Include="Build.RS.osx.tar.gz">
-        <RSArchive>$(RuntimeStoreArchivePrefix)osx-x64.tar.gz</RSArchive>
-      </TargzArchives>
-      <ZipArchives Include="Build.RS.winx64.zip">
-        <RSArchive>$(RuntimeStoreArchivePrefix)win7-x64.zip</RSArchive>
-      </ZipArchives>
-      <ZipArchives Include="Build.RS.winx86.zip">
-        <RSArchive>$(RuntimeStoreArchivePrefix)win7-x86.zip</RSArchive>
-      </ZipArchives>
-    </ItemGroup>
-
-    <!-- Targz -->
-    <MSBuild
-      Projects="$(MSBuildProjectFullPath)"
-      Targets="_GenerateTargz"
-      Properties="DependentArchives=$(_InstallerSource)%(TargzArchives.Identity);RSArchive=%(TargzArchives.RSArchive);OutputArchiveName=%(TargzArchives.Identity)" />
-    <!-- Targz -->
-    <MSBuild
-      Projects="$(MSBuildProjectFullPath)"
-      Targets="_GenerateZip"
-      Properties="DependentArchives=$(_InstallerSource)%(ZipArchives.Identity);RSArchive=%(ZipArchives.RSArchive);OutputArchiveName=%(ZipArchives.Identity)" />
+    <Exec Command="tar -czf $(_InstallersOutputDir)$(HostingArchiveName) -C $(_WorkRoot) ."/>
   </Target>
 
   <Target Name="_BuildDockerImage">
@@ -231,25 +156,25 @@
     <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_BuildDockerImage" Properties="Image=$(Image)" />
 
     <!-- Common installer parameters -->
-    <JsonPeek Query="$.short_description" JsonInputPath="$(RSDebConfigFile)">
+    <JsonPeek Query="$.short_description" JsonInputPath="$(PlatformDebConfigFile)">
       <Output TaskParameter="Result" ItemName="_RSInstallerSummary" />
     </JsonPeek>
-    <JsonPeek Query="$.long_description" JsonInputPath="$(RSDebConfigFile)">
+    <JsonPeek Query="$.long_description" JsonInputPath="$(PlatformDebConfigFile)">
       <Output TaskParameter="Result" ItemName="_RSDescription" />
     </JsonPeek>
-    <JsonPeek Query="$.license.type" JsonInputPath="$(RSDebConfigFile)">
+    <JsonPeek Query="$.license.type" JsonInputPath="$(PlatformDebConfigFile)">
       <Output TaskParameter="Result" ItemName="_RSLicense" />
     </JsonPeek>
-    <JsonPeek Query="$.release.package_revision" JsonInputPath="$(RSDebConfigFile)">
+    <JsonPeek Query="$.release.package_revision" JsonInputPath="$(PlatformDebConfigFile)">
       <Output TaskParameter="Result" ItemName="_RSPackageRevision" />
     </JsonPeek>
-    <JsonPeek Query="$.homepage" JsonInputPath="$(RSDebConfigFile)">
+    <JsonPeek Query="$.homepage" JsonInputPath="$(PlatformDebConfigFile)">
       <Output TaskParameter="Result" ItemName="_RSHomepage" />
     </JsonPeek>
-    <JsonPeek Query="$.maintainer_name" JsonInputPath="$(RSDebConfigFile)">
+    <JsonPeek Query="$.maintainer_name" JsonInputPath="$(PlatformDebConfigFile)">
       <Output TaskParameter="Result" ItemName="_RSMaintainerName" />
     </JsonPeek>
-    <JsonPeek Query="$.maintainer_email" JsonInputPath="$(RSDebConfigFile)">
+    <JsonPeek Query="$.maintainer_email" JsonInputPath="$(PlatformDebConfigFile)">
       <Output TaskParameter="Result" ItemName="_RSMaintainerEmail" />
     </JsonPeek>
     <JsonPeek Query="$.short_description" JsonInputPath="$(HostingDebConfigFile)">
@@ -279,10 +204,10 @@
       <RHStoreDirectories Include="$(RHInstallerInstallRoot)store" />
       <GenericStoreDirectories Include="$(GenericInstallerInstallRoot)additionalDeps" />
       <GenericStoreDirectories Include="$(GenericInstallerInstallRoot)store" />
-      <RSDependencies Include="$(RSInstallerName)-2.0.0">
+      <RSDependencies Include="$(PlatformInstallerName)-2.0.0">
         <Version>2.0.0</Version>
       </RSDependencies>
-      <HostingDependencies Include="$(RSInstallerName)-$(PackageVersion)">
+      <HostingDependencies Include="$(PlatformInstallerName)-$(PackageVersion)">
         <Version>$(PackageVersion)</Version>
       </HostingDependencies>
       <HostingDependencies Include="dotnet-runtime-$(MicrosoftNETCoreApp20PackageVersion)">
@@ -301,7 +226,7 @@
       <CommonRHArguments>RPMFileSuffix=rh.rhel.7-x64.rpm;RPMInstallRoot=$(RHInstallerInstallRoot)</CommonRHArguments>
 
       <CommonRSArguments>MaintainerName=@(_RSMaintainerName);MaintainerEmail=@(_RSMaintainerEmail)</CommonRSArguments>
-      <CommonRSArguments>$(CommonRSArguments);RPMInstallerPrefix=$(RSInstallerName);RPMRevision=@(_RSPackageRevision)</CommonRSArguments>
+      <CommonRSArguments>$(CommonRSArguments);RPMInstallerPrefix=$(PlatformInstallerName);RPMRevision=@(_RSPackageRevision)</CommonRSArguments>
       <CommonRSArguments>$(CommonRSArguments);RPMSummary=@(_RSInstallerSummary);RPMDescription=@(_RSDescription)</CommonRSArguments>
       <CommonRSArguments>$(CommonRSArguments);RPMLicense=@(_RSLicense);RPMHomepage=@(_RSHomepage)</CommonRSArguments>
 
@@ -311,13 +236,13 @@
       <CommonHostingArguments>$(CommonHostingArguments);RPMLicense=@(_HostingLicense);RPMHomepage=@(_HostingHomepage)</CommonHostingArguments>
 
       <RS_RPM_Arguments>$(CommonArguments);$(CommonGenericArguments);$(CommonRSArguments)</RS_RPM_Arguments>
-      <RS_RPM_Arguments>$(RS_RPM_Arguments);RSArchive=$(RuntimeStoreLinuxArchiveFilePath);RPMVersion=$(PackageVersion);RPMArguments=$(GenericRSArguments)</RS_RPM_Arguments>
+      <RS_RPM_Arguments>$(RS_RPM_Arguments);RSArchive=$(PlatformLinuxArchiveFilePath);RPMVersion=$(PackageVersion);RPMArguments=$(GenericRSArguments)</RS_RPM_Arguments>
 
       <Hosting_RPM_RedHat_Arguments>$(CommonArguments);$(CommonGenericArguments);$(CommonHostingArguments)</Hosting_RPM_RedHat_Arguments>
       <Hosting_RPM_RedHat_Arguments>$(Hosting_RPM_RedHat_Arguments);RPMVersion=$(PackageVersion);RPMArguments=$(HostingFPMArguments)</Hosting_RPM_RedHat_Arguments>
 
       <RS_RPM_RedHat_Arguments>$(CommonArguments);$(CommonRHArguments);$(CommonRSArguments)</RS_RPM_RedHat_Arguments>
-      <RS_RPM_RedHat_Arguments>$(RS_RPM_RedHat_Arguments);RSArchive=$(RuntimeStoreLinuxArchiveFilePath);RPMVersion=$(PackageVersion);RPMArguments=$(RHRSArguments)</RS_RPM_RedHat_Arguments>
+      <RS_RPM_RedHat_Arguments>$(RS_RPM_RedHat_Arguments);RSArchive=$(PlatformLinuxArchiveFilePath);RPMVersion=$(PackageVersion);RPMArguments=$(RHRSArguments)</RS_RPM_RedHat_Arguments>
 
       <Hosting_RPM_Arguments>$(CommonArguments);$(CommonRHArguments);$(CommonHostingArguments)</Hosting_RPM_Arguments>
       <Hosting_RPM_Arguments>$(Hosting_RPM_Arguments);RPMVersion=$(PackageVersion);RPMArguments=$(HostingFPMArguments)</Hosting_RPM_Arguments>
@@ -402,7 +327,7 @@
 
   <Target Name="_GenerateDebOnPlatform">
     <PropertyGroup>
-      <CommonRSArguments>Image=$(Image);DebConfig=$(RSDebConfigFile);DebPrefix=$(RSInstallerName)</CommonRSArguments>
+      <CommonRSArguments>Image=$(Image);DebConfig=$(PlatformDebConfigFile);DebPrefix=$(PlatformInstallerName)</CommonRSArguments>
       <CommonHostingArguments>Image=$(Image);DebConfig=$(HostingDebConfigFile);DotnetVersion=$(MicrosoftNETCoreApp20PackageVersion);DebPrefix=$(HostingInstallerName)</CommonHostingArguments>
     </PropertyGroup>
 
@@ -412,7 +337,7 @@
     <MSBuild
       Projects="$(MSBuildProjectFullPath)"
       Targets="_GenerateDeb"
-      Properties="$(CommonRSArguments);RSArchive=$(RuntimeStoreLinuxArchiveFilePath);DebVersion=$(Version)" />
+      Properties="$(CommonRSArguments);RSArchive=$(PlatformLinuxArchiveFilePath);DebVersion=$(Version)" />
     <MSBuild
       Projects="$(MSBuildProjectFullPath)"
       Targets="_GenerateDeb"
@@ -430,7 +355,6 @@
     <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDebOnPlatform" Properties="$(CommonArguments);Image=debian.8" />
     <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDebOnPlatform" Properties="$(CommonArguments);Image=ubuntu.14.04" />
     <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDebOnPlatform" Properties="$(CommonArguments);Image=ubuntu.16.04" />
-    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDebOnPlatform" Properties="$(CommonArguments);Image=ubuntu.16.10" />
   </Target>
 
   <Target Name="RunDebTool">
