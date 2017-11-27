@@ -251,6 +251,16 @@
     <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_RemoveDockerImage" Properties="Image=$(Image)" />
   </Target>
 
+  <Target Name="RunDebTool">
+    <!-- Install dotnet-deb tool -->
+    <MSBuild Projects="$(_DebToolDir)dotnet-deb-tool-consumer.csproj" Targets="Restore" />
+
+    <!-- Build deb package -->
+    <Exec
+      Command="dotnet deb-tool -i $(_WorkLayoutDir) -o $(_WorkOutputDir) -n $(INSTALLER_NAME) -v $(INSTALLER_VERSION)"
+      WorkingDirectory="$(_DebToolDir)" />
+  </Target>
+
   <Target Name="_GenerateDeb">
     <!-- Create layout: Clear work directory -->
     <RemoveDir Directories="$(_WorkRoot)" />
@@ -315,67 +325,43 @@
   </Target>
 
   <Target Name="_GenerateDebOnPlatform">
-    <PropertyGroup>
-      <CommonPlatformArguments>Image=$(Image);DebConfig=$(PlatformDebConfigFile);DebPrefix=$(PlatformInstallerName)</CommonPlatformArguments>
-      <CommonHostingArguments>Image=$(Image);DebConfig=$(HostingDebConfigFile);DotnetVersion=$(CoreSetupPackageVersion);DebPrefix=$(HostingInstallerName)</CommonHostingArguments>
-    </PropertyGroup>
-
     <!-- Build Docker Image -->
     <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_BuildDockerImage" Properties="Image=$(Image)" />
 
     <MSBuild
       Projects="$(MSBuildProjectFullPath)"
       Targets="_GenerateDeb"
-      Properties="$(CommonPlatformArguments);PlatformArchive=$(PlatformLinuxArchiveFilePath);DebVersion=$(Version)" />
+      Properties="Image=$(Image);DebVersion=$(Version);DebConfig=$(PlatformDebConfigFile);DebPrefix=$(PlatformInstallerName);PlatformArchive=$(PlatformLinuxArchiveFilePath)" />
     <MSBuild
       Projects="$(MSBuildProjectFullPath)"
       Targets="_GenerateDeb"
-      Properties="$(CommonHostingArguments);DebVersion=$(Version)" />
+      Properties="Image=$(Image);DebVersion=$(Version);DebConfig=$(HostingDebConfigFile);DebPrefix=$(HostingInstallerName);DotnetVersion=$(CoreSetupPackageVersion)" />
 
     <!-- Remove Docker Image to save disk space -->
     <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_RemoveDockerImage" Properties="Image=$(Image)" />
   </Target>
 
   <Target Name="GenerateDebs" DependsOnTargets="_EnsureInstallerPrerequisites">
-    <PropertyGroup>
-      <CommonArguments>Version=$(Version)</CommonArguments>
-    </PropertyGroup>
-
-    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDebOnPlatform" Properties="$(CommonArguments);Image=debian.8" />
-    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDebOnPlatform" Properties="$(CommonArguments);Image=ubuntu.14.04" />
-    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDebOnPlatform" Properties="$(CommonArguments);Image=ubuntu.16.04" />
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDebOnPlatform" Properties="Version=$(Version);Image=debian.8" />
+    <!-- <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDebOnPlatform" Properties="Version=$(Version);Image=ubuntu.14.04" /> -->
+    <!-- <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDebOnPlatform" Properties="Version=$(Version);Image=ubuntu.16.04" /> -->
   </Target>
 
-  <Target Name="RunDebTool">
-    <!-- Install dotnet-deb tool -->
-    <MSBuild Projects="$(_DebToolDir)dotnet-deb-tool-consumer.csproj" Targets="Restore" />
+  <Target Name="_GenerateRelabledInstaller">
+    <ItemGroup>
+      <Installers Include="$(_InstallersOutputDir)*$(Source)*" />
+    </ItemGroup>
 
-    <!-- Build deb package -->
-    <Exec
-      Command="dotnet deb-tool -i $(_WorkLayoutDir) -o $(_WorkOutputDir) -n $(INSTALLER_NAME) -v $(INSTALLER_VERSION)"
-      WorkingDirectory="$(_DebToolDir)" />
+    <Copy
+      SourceFiles="%(Installers.FullPath)"
+      DestinationFiles="$([System.String]::Copy('%(Installers.FullPath)').Replace('$(Source)','$(Target)'))"
+      OverwriteReadOnlyFiles="True"
+      SkipUnchangedFiles="False"
+      UseHardlinksIfPossible="False" />
   </Target>
 
   <Target Name="GenerateRelabledInstallers">
-    <ItemGroup>
-      <Debian8Installers Include="$(_InstallersOutputDir)*debian.8*" />
-      <Ubuntu1604Installers Include="$(_InstallersOutputDir)*ubuntu.16.04*" />
-    </ItemGroup>
-
-    <!-- Create debian.9 installers by renaming debian.8 installers -->
-    <Copy
-      SourceFiles="%(Debian8Installers.FullPath)"
-      DestinationFiles="$([System.String]::Copy('%(Debian8Installers.FullPath)').Replace('debian.8','debian.9'))"
-      OverwriteReadOnlyFiles="True"
-      SkipUnchangedFiles="False"
-      UseHardlinksIfPossible="False" />
-
-    <!-- Create ubuntu.17.04 installers by renaming ubuntu.16.04 installers -->
-    <Copy
-      SourceFiles="%(Ubuntu1604Installers.FullPath)"
-      DestinationFiles="$([System.String]::Copy('%(Ubuntu1604Installers.FullPath)').Replace('ubuntu.16.04','ubuntu.17.04'))"
-      OverwriteReadOnlyFiles="True"
-      SkipUnchangedFiles="False"
-      UseHardlinksIfPossible="False" />
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateRelabledInstaller" Properties="Source=debian.8;Target=debian.9" />
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateRelabledInstaller" Properties="Source=ubuntu.16.04;Target=ubuntu.17.04" />
   </Target>
 </Project>
