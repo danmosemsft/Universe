@@ -1,10 +1,11 @@
 <Project>
+  <Import Project="common.props" />
+
   <PropertyGroup>
-    <_TemplatesDirectory>$(MSBuildThisFileDirectory)tools\templates\</_TemplatesDirectory>
     <_DockerDir>$(MSBuildThisFileDirectory)tools\docker\</_DockerDir>
     <_PackagingDir>$(MSBuildThisFileDirectory)tools\packaging\</_PackagingDir>
     <_DebToolDir>$(MSBuildThisFileDirectory)tools\dotnet-deb-tool-consumer\</_DebToolDir>
-    <_PlatformSource>$(RepositoryRoot).deps\Signed\Platform\</_PlatformSource>
+    <_SFSource>$(RepositoryRoot).deps\Signed\SF\</_SFSource>
     <_InstallerSource>$(RepositoryRoot).deps\Installers\</_InstallerSource>
     <_WorkRoot>$(RepositoryRoot).w\</_WorkRoot>
     <_WorkLayoutDir>$(_WorkRoot).l\</_WorkLayoutDir>
@@ -12,10 +13,10 @@
     <_DockerRootDirectory>/opt/code/</_DockerRootDirectory>
     <_InstallersOutputDir>$(ArtifactsDir)installers\</_InstallersOutputDir>
 
-    <PlatformInstallerName>aspnetcore-all</PlatformInstallerName>
+    <SFInstallerName>aspnetcore-shared</SFInstallerName>
     <HostingInstallerName>dotnet-hosting</HostingInstallerName>
     <HostingArchiveName>$(HostingInstallerName)-$(PackageVersion)-linux-x64.tar.gz</HostingArchiveName>
-    <PlatformDebConfigFile>$(_PackagingDir)platform_debian_config.json</PlatformDebConfigFile>
+    <SFDebConfigFile>$(_PackagingDir)sf_debian_config.json</SFDebConfigFile>
     <HostingDebConfigFile>$(_PackagingDir)hosting_debian_config.json</HostingDebConfigFile>
 
     <PublicCoreFeedPrefix>https://dotnetcli.blob.core.windows.net/dotnet</PublicCoreFeedPrefix>
@@ -23,8 +24,8 @@
     <CoreFeedPrefix Condition="'$(CoreFeedPrefix)'==''">$(PublicCoreFeedPrefix)</CoreFeedPrefix>
 
     <RuntimeTargzLink>$(CoreFeedPrefix)/Runtime/$(CoreSetupPackageVersion)/dotnet-runtime-$(CoreSetupPackageVersion)-linux-x64.tar.gz</RuntimeTargzLink>
-    <PlatformArchivePrefix>$(_PlatformSource)aspnetcore-all-$(PackageVersion)-</PlatformArchivePrefix>
-    <PlatformLinuxArchiveFilePath>$(PlatformArchivePrefix)linux-x64.tar.gz</PlatformLinuxArchiveFilePath>
+    <SFArchivePrefix>$(_SFSource)$(SFInstallerName)-$(PackageVersion)-</SFArchivePrefix>
+    <SFLinuxArchiveFilePath>$(SFArchivePrefix)linux-x64.tar.gz</SFLinuxArchiveFilePath>
   </PropertyGroup>
 
   <Target Name="BuildInstallers" DependsOnTargets="GenerateTargzs;GenerateRpms;GenerateDebs;GenerateRelabledInstallers" />
@@ -38,10 +39,7 @@
     </Exec>
 
     <Error Text="Docker host must be using Linux containers." Condition="'$(DockerHostOS)' != 'linux'"/>
-
-    <Error
-      Text="Linux archive not found. Expected it to exist in $(PlatformLinuxArchiveFilePath)."
-      Condition="!Exists('$(PlatformLinuxArchiveFilePath)')" />
+    <Error Text="Linux archive not found. Expected it to exist in $(SFLinuxArchiveFilePath)." Condition="!Exists('$(SFLinuxArchiveFilePath)')" />
   </Target>
 
   <Target Name="_DownloadInstallers">
@@ -55,9 +53,6 @@
     <Exec Command="curl --fail -sSL &quot;$(RuntimeTargzLink)$KOREBUILD_DOTNET_FEED_CREDENTIAL&quot; -o $(_InstallerSource)dotnet-runtime-$(CoreSetupPackageVersion)-linux-x64.tar.gz" />
   </Target>
 
-  <Target Name="_GenerateTargz">
-  </Target>
-
   <Target Name="GenerateTargzs" DependsOnTargets="_EnsureInstallerPrerequisites;_DownloadInstallers">
     <ItemGroup>
       <_DependentArchives Include="$(_InstallerSource)dotnet-runtime-$(CoreSetupPackageVersion)-linux-x64.tar.gz" />
@@ -68,7 +63,7 @@
     <MakeDir Directories="$(_WorkRoot)" />
 
     <!-- Create layout: Aspnet Hosting Bundle -->
-    <Exec Command="tar -xzf $(PlatformLinuxArchiveFilePath) -C $(_WorkRoot)" />
+    <Exec Command="tar -xzf $(SFLinuxArchiveFilePath) -C $(_WorkRoot)" />
     <Exec Command="tar -xzf %(_DependentArchives.Identity) -C $(_WorkRoot)" />
 
     <!-- Create Aspnet Hosting Bundle tar.gz -->
@@ -92,7 +87,7 @@
 
     <!-- Create layout: Extract archive if given -->
     <MakeDir Directories="$(_WorkRoot)package_root\" />
-    <Exec Command="tar -xzf $(PlatformArchive) -C $(_WorkRoot)package_root\" Condition="'$(PlatformArchive)'!=''" />
+    <Exec Command="tar -xzf $(SFArchive) -C $(_WorkRoot)package_root\" Condition="'$(SFArchive)'!=''" />
 
     <!-- Create layout: Place changelog -->
     <Copy
@@ -156,26 +151,26 @@
     <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_BuildDockerImage" Properties="Image=$(Image)" />
 
     <!-- Common installer parameters -->
-    <JsonPeek Query="$.short_description" JsonInputPath="$(PlatformDebConfigFile)">
-      <Output TaskParameter="Result" ItemName="_PlatformInstallerSummary" />
+    <JsonPeek Query="$.short_description" JsonInputPath="$(SFDebConfigFile)">
+      <Output TaskParameter="Result" ItemName="_SFInstallerSummary" />
     </JsonPeek>
-    <JsonPeek Query="$.long_description" JsonInputPath="$(PlatformDebConfigFile)">
-      <Output TaskParameter="Result" ItemName="_PlatformDescription" />
+    <JsonPeek Query="$.long_description" JsonInputPath="$(SFDebConfigFile)">
+      <Output TaskParameter="Result" ItemName="_SFDescription" />
     </JsonPeek>
-    <JsonPeek Query="$.license.type" JsonInputPath="$(PlatformDebConfigFile)">
-      <Output TaskParameter="Result" ItemName="_PlatformLicense" />
+    <JsonPeek Query="$.license.type" JsonInputPath="$(SFDebConfigFile)">
+      <Output TaskParameter="Result" ItemName="_SFLicense" />
     </JsonPeek>
-    <JsonPeek Query="$.release.package_revision" JsonInputPath="$(PlatformDebConfigFile)">
-      <Output TaskParameter="Result" ItemName="_PlatformPackageRevision" />
+    <JsonPeek Query="$.release.package_revision" JsonInputPath="$(SFDebConfigFile)">
+      <Output TaskParameter="Result" ItemName="_SFPackageRevision" />
     </JsonPeek>
-    <JsonPeek Query="$.homepage" JsonInputPath="$(PlatformDebConfigFile)">
-      <Output TaskParameter="Result" ItemName="_PlatformHomepage" />
+    <JsonPeek Query="$.homepage" JsonInputPath="$(SFDebConfigFile)">
+      <Output TaskParameter="Result" ItemName="_SFHomepage" />
     </JsonPeek>
-    <JsonPeek Query="$.maintainer_name" JsonInputPath="$(PlatformDebConfigFile)">
-      <Output TaskParameter="Result" ItemName="_PlatformMaintainerName" />
+    <JsonPeek Query="$.maintainer_name" JsonInputPath="$(SFDebConfigFile)">
+      <Output TaskParameter="Result" ItemName="_SFMaintainerName" />
     </JsonPeek>
-    <JsonPeek Query="$.maintainer_email" JsonInputPath="$(PlatformDebConfigFile)">
-      <Output TaskParameter="Result" ItemName="_PlatformMaintainerEmail" />
+    <JsonPeek Query="$.maintainer_email" JsonInputPath="$(SFDebConfigFile)">
+      <Output TaskParameter="Result" ItemName="_SFMaintainerEmail" />
     </JsonPeek>
     <JsonPeek Query="$.short_description" JsonInputPath="$(HostingDebConfigFile)">
       <Output TaskParameter="Result" ItemName="_HostingSummary" />
@@ -200,30 +195,30 @@
     </JsonPeek>
 
     <ItemGroup>
-      <HostingDependencies Include="$(PlatformInstallerName)-$(PackageVersion)">
+      <HostingDependencies Include="$(SFInstallerName)-$(PackageVersion)">
         <Version>$(PackageVersion)</Version>
       </HostingDependencies>
       <HostingDependencies Include="dotnet-runtime-$(CoreSetupPackageVersion)">
         <Version>$(CoreSetupPackageVersion)</Version>
       </HostingDependencies>
-      <RHPlatformDirectories Include="$(RHInstallerInstallRoot)shared" />
-      <GenericPlatformDirectories Include="$(GenericInstallerInstallRoot)shared" />
+      <RHSFDirectories Include="$(RHInstallerInstallRoot)shared" />
+      <GenericSFDirectories Include="$(GenericInstallerInstallRoot)shared" />
     </ItemGroup>
 
     <PropertyGroup>
       <HostingFPMArguments>@(HostingDependencies->' -d &quot;%(Identity) &gt;= %(Version)&quot;', ' ')</HostingFPMArguments>
-      <RHPlatformArguments>@(RHPlatformDirectories->' --directories &quot;%(FullPath)&quot;', ' ')</RHPlatformArguments>
-      <GenericPlatformArguments>@(GenericPlatformDirectories->' --directories &quot;%(FullPath)&quot;', ' ')</GenericPlatformArguments>
+      <RHSFArguments>@(RHSFDirectories->' --directories &quot;%(FullPath)&quot;', ' ')</RHSFArguments>
+      <GenericSFArguments>@(GenericSFDirectories->' --directories &quot;%(FullPath)&quot;', ' ')</GenericSFArguments>
 
       <CommonArguments>Image=$(Image);RPMVendor=$(RPMVendor);RPMVersion=$(PackageVersion)</CommonArguments>
       <CommonGenericArguments>RPMFileSuffix=rhel.7-x64.rpm;RPMInstallRoot=$(GenericInstallerInstallRoot)</CommonGenericArguments>
       <CommonRHArguments>RPMFileSuffix=rh.rhel.7-x64.rpm;RPMInstallRoot=$(RHInstallerInstallRoot)</CommonRHArguments>
 
-      <CommonPlatformArguments>MaintainerName=@(_PlatformMaintainerName);MaintainerEmail=@(_PlatformMaintainerEmail)</CommonPlatformArguments>
-      <CommonPlatformArguments>$(CommonPlatformArguments);RPMInstallerPrefix=$(PlatformInstallerName);RPMRevision=@(_PlatformPackageRevision)</CommonPlatformArguments>
-      <CommonPlatformArguments>$(CommonPlatformArguments);RPMSummary=@(_PlatformInstallerSummary);RPMDescription=@(_PlatformDescription)</CommonPlatformArguments>
-      <CommonPlatformArguments>$(CommonPlatformArguments);RPMLicense=@(_PlatformLicense);RPMHomepage=@(_PlatformHomepage)</CommonPlatformArguments>
-      <CommonPlatformArguments>$(CommonPlatformArguments);PlatformArchive=$(PlatformLinuxArchiveFilePath)</CommonPlatformArguments>
+      <CommonSFArguments>MaintainerName=@(_SFMaintainerName);MaintainerEmail=@(_SFMaintainerEmail)</CommonSFArguments>
+      <CommonSFArguments>$(CommonSFArguments);RPMInstallerPrefix=$(SFInstallerName);RPMRevision=@(_SFPackageRevision)</CommonSFArguments>
+      <CommonSFArguments>$(CommonSFArguments);RPMSummary=@(_SFInstallerSummary);RPMDescription=@(_SFDescription)</CommonSFArguments>
+      <CommonSFArguments>$(CommonSFArguments);RPMLicense=@(_SFLicense);RPMHomepage=@(_SFHomepage)</CommonSFArguments>
+      <CommonSFArguments>$(CommonSFArguments);SFArchive=$(SFLinuxArchiveFilePath)</CommonSFArguments>
 
       <CommonHostingArguments>$(CommonArguments);MaintainerName=@(_HostingMaintainerName);MaintainerEmail=@(_HostingMaintainerEmail)</CommonHostingArguments>
       <CommonHostingArguments>$(CommonHostingArguments);RPMInstallerPrefix=$(HostingInstallerName);RPMRevision=@(_HostingRevision)</CommonHostingArguments>
@@ -231,19 +226,19 @@
       <CommonHostingArguments>$(CommonHostingArguments);RPMLicense=@(_HostingLicense);RPMHomepage=@(_HostingHomepage)</CommonHostingArguments>
       <CommonHostingArguments>$(CommonHostingArguments);RPMArguments=$(HostingFPMArguments)</CommonHostingArguments>
 
-      <Platform_RPM_Arguments>$(CommonArguments);$(CommonGenericArguments);$(CommonPlatformArguments);RPMArguments=$(GenericPlatformArguments)</Platform_RPM_Arguments>
+      <SF_RPM_Arguments>$(CommonArguments);$(CommonGenericArguments);$(CommonSFArguments);RPMArguments=$(GenericSFArguments)</SF_RPM_Arguments>
       <Hosting_RPM_Arguments>$(CommonArguments);$(CommonGenericArguments);$(CommonHostingArguments)</Hosting_RPM_Arguments>
-      <Platform_RPM_RedHat_Arguments>$(CommonArguments);$(CommonRHArguments);$(CommonPlatformArguments);RPMArguments=$(RHPlatformArguments)</Platform_RPM_RedHat_Arguments>
+      <SF_RPM_RedHat_Arguments>$(CommonArguments);$(CommonRHArguments);$(CommonSFArguments);RPMArguments=$(RHSFArguments)</SF_RPM_RedHat_Arguments>
       <Hosting_RPM_RedHat_Arguments>$(CommonArguments);$(CommonRHArguments);$(CommonHostingArguments)</Hosting_RPM_RedHat_Arguments>
     </PropertyGroup>
 
     <!-- General platform -->
-    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateRpm" Properties="$(Platform_RPM_Arguments)" />
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateRpm" Properties="$(SF_RPM_Arguments)" />
     <!-- General hosting bundle -->
     <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateRpm" Properties="$(Hosting_RPM_RedHat_Arguments)" />
 
     <!-- RH platform -->
-    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateRpm" Properties="$(Platform_RPM_RedHat_Arguments)" />
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateRpm" Properties="$(SF_RPM_RedHat_Arguments)" />
     <!-- RH hosting bundle -->
     <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateRpm" Properties="$(Hosting_RPM_Arguments)" />
 
@@ -268,7 +263,7 @@
 
     <!-- Create layout: Extract archive if given -->
     <MakeDir Directories="$(_WorkLayoutDir)package_root\" />
-    <Exec Command="tar -xzf $(PlatformArchive) -C $(_WorkLayoutDir)package_root/" Condition="'$(PlatformArchive)'!=''" />
+    <Exec Command="tar -xzf $(SFArchive) -C $(_WorkLayoutDir)package_root/" Condition="'$(SFArchive)'!=''" />
 
     <!-- Create layout: Generate and Place debian_config.json -->
     <Copy
@@ -286,7 +281,7 @@
     <!-- Update versions -->
     <RepoTasks.ReplaceInFile Filename="$(_WorkLayoutDir)debian_config.json" Items="@(DebConfigItems)" />
 
-    <!-- Build Platform and Hosting Bundle Deb package -->
+    <!-- Build SF and Hosting Bundle Deb package -->
 
     <!--
       Note: KOREBUILD_DOTNET_FEED_CREDENTIAL is intentionally NOT an MSBuild variable.
@@ -309,7 +304,7 @@
       ./build.sh /t:RunDebTool"
       ContinueOnError="WarnAndContinue" />
 
-    <!-- Copy Platform and Hosting Bundle packages to output -->
+    <!-- Copy SF and Hosting Bundle packages to output -->
     <ItemGroup>
       <GeneratedDebFiles Include="$(_WorkOutputDir)/*.deb" />
     </ItemGroup>
@@ -331,7 +326,7 @@
     <MSBuild
       Projects="$(MSBuildProjectFullPath)"
       Targets="_GenerateDeb"
-      Properties="Image=$(Image);DebVersion=$(Version);DebConfig=$(PlatformDebConfigFile);DebPrefix=$(PlatformInstallerName);PlatformArchive=$(PlatformLinuxArchiveFilePath)" />
+      Properties="Image=$(Image);DebVersion=$(Version);DebConfig=$(SFDebConfigFile);DebPrefix=$(SFInstallerName);SFArchive=$(SFLinuxArchiveFilePath)" />
     <MSBuild
       Projects="$(MSBuildProjectFullPath)"
       Targets="_GenerateDeb"
@@ -343,8 +338,8 @@
 
   <Target Name="GenerateDebs" DependsOnTargets="_EnsureInstallerPrerequisites">
     <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDebOnPlatform" Properties="Version=$(Version);Image=debian.8" />
-    <!-- <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDebOnPlatform" Properties="Version=$(Version);Image=ubuntu.14.04" /> -->
-    <!-- <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDebOnPlatform" Properties="Version=$(Version);Image=ubuntu.16.04" /> -->
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDebOnPlatform" Properties="Version=$(Version);Image=ubuntu.14.04" />
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDebOnPlatform" Properties="Version=$(Version);Image=ubuntu.16.04" />
   </Target>
 
   <Target Name="_GenerateRelabledInstaller">

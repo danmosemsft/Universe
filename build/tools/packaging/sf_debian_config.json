@@ -2,7 +2,7 @@
     "maintainer_name": "Microsoft",
     "maintainer_email": "nugetaspnet@microsoft.com",
 
-    "package_name": "aspnetcore-all",
+    "package_name": "aspnetcore-shared",
     "install_root": "/usr/share/dotnet",
 
     "short_description": "Microsoft ASP.NET Core DEB_VERSION Shared Framework",
