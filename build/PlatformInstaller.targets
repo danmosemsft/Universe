@@ -10,7 +10,7 @@
     </Exec>
 
     <Error Text="Docker host must be using Linux containers." Condition="'$(DockerHostOS)' != 'linux'"/>
-    <Error Text="Linux archive not found. Expected it to exist in $(SFLinuxArchiveFilePath)." Condition="!Exists('$(SFLinuxArchiveFilePath)')" />
+    <Error Text="Linux archive not found at $(SFLinuxArchiveFilePath)." Condition="!Exists('$(SFLinuxArchiveFilePath)')" />
   </Target>
 
   <Target Name="_DownloadInstallers">
@@ -21,7 +21,7 @@
       MSBuild doesn't to the substitution correctly because the string contains %,
       so we'll let bash do it instead.
     -->
-    <Exec Command="curl --fail -sSL &quot;$(RuntimeTargzLink)$KOREBUILD_DOTNET_FEED_CREDENTIAL&quot; -o $(_InstallerSource)dotnet-runtime-$(CoreSetupPackageVersion)-linux-x64.tar.gz" />
+    <Exec Command="curl --fail -sSL &quot;$(RuntimeTargzLink)$KOREBUILD_DOTNET_FEED_CREDENTIAL&quot; -o $(_InstallerSource)$(DotnetRuntimeInstallerArchiveName)" />
   </Target>
 
   <Target Name="GenerateTargzs" DependsOnTargets="_EnsureInstallerPrerequisites;_DownloadInstallers">
@@ -29,26 +29,20 @@
       <HostingArchiveName>$(HostingInstallerName)-$(PackageVersion)-linux-x64.tar.gz</HostingArchiveName>
     </PropertyGroup>
 
-    <ItemGroup>
-      <_DependentArchives Include="$(_InstallerSource)dotnet-runtime-$(CoreSetupPackageVersion)-linux-x64.tar.gz" />
-    </ItemGroup>
-
     <!-- Clear working directory -->
     <RemoveDir Directories="$(_WorkRoot)" />
     <MakeDir Directories="$(_WorkRoot)" />
 
     <!-- Create layout: Aspnet Hosting Bundle -->
     <Exec Command="tar -xzf $(SFLinuxArchiveFilePath) -C $(_WorkRoot)" />
-    <Exec Command="tar -xzf %(_DependentArchives.Identity) -C $(_WorkRoot)" />
+    <Exec Command="tar -xzf $(_InstallerSource)$(DotnetRuntimeInstallerArchiveName) -C $(_WorkRoot)" />
 
     <!-- Create Aspnet Hosting Bundle tar.gz -->
     <Exec Command="tar -czf $(_InstallersOutputDir)$(HostingArchiveName) -C $(_WorkRoot) ."/>
   </Target>
 
   <Target Name="_BuildDockerImage">
-    <Exec
-      Command="docker build --build-arg USER_ID=%24(id -u) -t docker-image-$(Image) $(Image)"
-      WorkingDirectory="$(_DockerDir)" />
+    <Exec Command="docker build --build-arg USER_ID=%24(id -u) -t docker-image-$(Image) $(Image)" WorkingDirectory="$(_DockerDir)" />
   </Target>
 
   <Target Name="_RemoveDockerImage">
@@ -125,18 +119,14 @@
     <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_BuildDockerImage" Properties="Image=$(Image)" />
 
     <ItemGroup>
-      <HostingDependencies Include="$(SFInstallerName)-$(PackageVersion)">
-        <Version>$(PackageVersion)</Version>
-      </HostingDependencies>
-      <HostingDependencies Include="dotnet-runtime-$(CoreSetupPackageVersion)">
-        <Version>$(CoreSetupPackageVersion)</Version>
-      </HostingDependencies>
+      <RPMHostingDependencies Include="$(SFInstallerName)-$(PackageVersion)" Version="$(PackageVersion)" />
+      <RPMHostingDependencies Include="$(DotnetRuntimeInstallerName)" Version="$(CoreSetupPackageVersion)" />
       <RHSFDirectories Include="$(RHInstallRoot)/shared" />
       <GenericSFDirectories Include="$(InstallRoot)/shared" />
     </ItemGroup>
 
     <PropertyGroup>
-      <HostingFPMArguments>@(HostingDependencies->' -d &quot;%(Identity) &gt;= %(Version)&quot;', ' ')</HostingFPMArguments>
+      <HostingFPMArguments>@(RPMHostingDependencies->' -d &quot;%(Identity) &gt;= %(Version)&quot;', ' ')</HostingFPMArguments>
       <RHSFArguments>@(RHSFDirectories->' --directories &quot;%(FullPath)&quot;', ' ')</RHSFArguments>
       <GenericSFArguments>@(GenericSFDirectories->' --directories &quot;%(FullPath)&quot;', ' ')</GenericSFArguments>
 
@@ -194,7 +184,7 @@
 
     <!-- Create layout: Generate and Place debian_config.json -->
     <Copy
-      SourceFiles="$(DebConfig)"
+      SourceFiles="$(DebConfigFile)"
       DestinationFiles="$(_WorkLayoutDir)debian_config.json"
       OverwriteReadOnlyFiles="True"
       SkipUnchangedFiles="False"
@@ -210,8 +200,7 @@
       <DebConfigItems Include="LICENSE_TYPE" Replacement="$(LicenseType)" />
       <DebConfigItems Include="SHORT_DESCRIPTION" Replacement="$(DebSummary)" />
       <DebConfigItems Include="LONG_DESCRIPTION" Replacement="$(DebDescription)" />
-      <DebConfigItems Include="DOTNET_VERSION" Replacement="$(DotnetVersion)" />
-      <DebConfigItems Include="DEB_VERSION" Replacement="$(DebVersion)" />
+      <DebConfigItems Include="DEBIAN_DEPENDENCIES" Replacement="$(DebDependencies)" />
     </ItemGroup>
 
     <!-- Update versions -->
@@ -259,14 +248,25 @@
     <!-- Build Docker Image -->
     <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_BuildDockerImage" Properties="Image=$(Image)" />
 
-    <!-- <MSBuild
-      Projects="$(MSBuildProjectFullPath)"
-      Targets="_GenerateDeb"
-      Properties="Image=$(Image);DebVersion=$(Version);DebConfig=$(SFDebConfigFile);DebPrefix=$(SFInstallerName);DebSummary=$(SFSummary);DebDescription=$(SFDescription);SFArchive=$(SFLinuxArchiveFilePath)" /> -->
-    <MSBuild
-      Projects="$(MSBuildProjectFullPath)"
-      Targets="_GenerateDeb"
-      Properties="Image=$(Image);DebVersion=$(Version);DebConfig=$(HostingDebConfigFile);DebPrefix=$(HostingInstallerName);DebSummary=$(HostingSummary);DebDescription=$(HostingDescription);DotnetVersion=$(CoreSetupPackageVersion)" />
+    <ItemGroup>
+      <_DebSFDependencies Include="aspnetcore-store-2.0.3"/>
+      <_DebHostingDependencies Include="$(DotnetRuntimeInstallerName)"/>
+      <_DebHostingDependencies Include="$(SFInstallerName)-$(Version)"/>
+    </ItemGroup>
+
+    <PropertyGroup>
+      <DebSFDependencies>@(_DebSFDependencies->'"%(Identity)": {}', ', ')</DebSFDependencies>
+      <DebHostingDependencies>@(_DebHostingDependencies->'"%(Identity)": {}', ', ')</DebHostingDependencies>
+
+      <CommonProps>Image=$(Image);DebVersion=$(Version)</CommonProps>
+      <DebSFProps>DebPrefix=$(SFInstallerName);DebSummary=$(SFSummary);DebDescription=$(SFDescription)</DebSFProps>
+      <DebSFProps>$(DebSFProps);;DebDependencies=$(DebSFDependencies);SFArchive=$(SFLinuxArchiveFilePath)</DebSFProps>
+      <DebHostingProps>DebPrefix=$(HostingInstallerName);DebSummary=$(HostingSummary);DebDescription=$(HostingDescription)</DebHostingProps>
+      <DebHostingProps>$(DebHostingProps);DebDependencies=$(DebHostingDependencies)</DebHostingProps>
+    </PropertyGroup>
+
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDeb" Properties="$(CommonProps);$(DebSFProps)" />
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDeb" Properties="$(CommonProps);$(DebHostingProps)" />
 
     <!-- Remove Docker Image to save disk space -->
     <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_RemoveDockerImage" Properties="Image=$(Image)" />
@@ -274,8 +274,8 @@
 
   <Target Name="GenerateDebs" DependsOnTargets="_EnsureInstallerPrerequisites">
     <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDebOnPlatform" Properties="Version=$(Version);Image=debian.8" />
-    <!-- <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDebOnPlatform" Properties="Version=$(Version);Image=ubuntu.14.04" /> -->
-    <!-- <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDebOnPlatform" Properties="Version=$(Version);Image=ubuntu.16.04" /> -->
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDebOnPlatform" Properties="Version=$(Version);Image=ubuntu.14.04" />
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="_GenerateDebOnPlatform" Properties="Version=$(Version);Image=ubuntu.16.04" />
   </Target>
 
   <Target Name="_GenerateRelabledInstaller">

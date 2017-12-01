@@ -18,14 +18,16 @@
     <!-- installers -->
     <SFInstallerName>aspnetcore-shared</SFInstallerName>
     <HostingInstallerName>dotnet-hosting</HostingInstallerName>
-    <SFDebConfigFile>$(_PackagingDir)sf_debian_config.json</SFDebConfigFile>
-    <HostingDebConfigFile>$(_PackagingDir)hosting_debian_config.json</HostingDebConfigFile>
+    <DebConfigFile>$(_PackagingDir)debian_config.json</DebConfigFile>
 
     <PublicCoreFeedPrefix>https://dotnetcli.blob.core.windows.net/dotnet</PublicCoreFeedPrefix>
     <CoreFeedPrefix Condition="'$(KOREBUILD_DOTNET_FEED_UNCACHED)'!=''">$(KOREBUILD_DOTNET_FEED_UNCACHED)</CoreFeedPrefix>
     <CoreFeedPrefix Condition="'$(CoreFeedPrefix)'==''">$(PublicCoreFeedPrefix)</CoreFeedPrefix>
 
-    <RuntimeTargzLink>$(CoreFeedPrefix)/Runtime/$(CoreSetupPackageVersion)/dotnet-runtime-$(CoreSetupPackageVersion)-linux-x64.tar.gz</RuntimeTargzLink>
+    <DotnetRuntimePackageName>dotnet-runtime</DotnetRuntimePackageName>
+    <DotnetRuntimeInstallerName>$(DotnetRuntimePackageName)-$(CoreSetupPackageVersion)</DotnetRuntimeInstallerName>
+    <DotnetRuntimeInstallerArchiveName>$(DotnetRuntimeInstallerName)-linux-x64.tar.gz</DotnetRuntimeInstallerArchiveName>
+    <RuntimeTargzLink>$(CoreFeedPrefix)/Runtime/$(CoreSetupPackageVersion)/$(DotnetRuntimeInstallerArchiveName)</RuntimeTargzLink>
     <SFLinuxArchiveFilePath>$(_SFSourceDir)$(SFInstallerName)-$(PackageVersion)-linux-x64.tar.gz</SFLinuxArchiveFilePath>
 
     <!-- installer metadata -->
