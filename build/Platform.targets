@@ -66,6 +66,7 @@
       <PlatformPublishDirectory>$(PlatformOutputDirectory)shared\Microsoft.AspNetCore.All\$(PackageVersion)\</PlatformPublishDirectory>
 
       <_PlatformProps>Configuration=$(Configuration);RuntimeIdentifier=$(PlatformRID)</_PlatformProps>
+      <_PlatformProps>$(_PlatformProps);RuntimeFrameworkVersion=$(MicrosoftNETCoreApp20PackageVersion)</_PlatformProps>
       <_PlatformProps>$(_PlatformProps);DotNetRestoreSourcePropsPath=$(GeneratedRestoreSourcesPropsPath)</_PlatformProps>
       <_PlatformProps>$(_PlatformProps);AspNetUniverseBuildOffline=true</_PlatformProps>
     </PropertyGroup>

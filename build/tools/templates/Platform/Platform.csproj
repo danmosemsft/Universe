@@ -1,9 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <Import Project="$(DotNetRestoreSourcesPropsPath)" Condition="'$(DotNetRestoreSourcesPropsPath)' != ''" />
+  <Import Project="$(DotNetRestoreSourcePropsPath)" Condition="'$(DotNetRestoreSourcePropsPath)' != ''" />
 
   <PropertyGroup>
     <TargetFramework>netcoreapp2.0</TargetFramework>
+    <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
     <RestoreSources>$(DotNetRestoreSources)</RestoreSources>
     <RestoreSources Condition="'$(DotNetBuildOffline)' != 'true' AND '$(AspNetUniverseBuildOffline)' != 'true' ">
       $(RestoreSources);
@@ -19,5 +21,6 @@
 
   <ItemGroup>
    <PackageReference Include="Microsoft.AspNetCore.All" Version="$(PackageVersion)" />
+   <PackageReference Include="Microsoft.NETCore.App" Version="$(RuntimeFrameworkVersion)"/>
   </ItemGroup>
 </Project>
