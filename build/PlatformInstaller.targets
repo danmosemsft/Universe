@@ -121,12 +121,14 @@
     <ItemGroup>
       <RPMHostingDependencies Include="$(SFInstallerName)-$(PackageVersion)" Version="$(PackageVersion)" />
       <RPMHostingDependencies Include="$(DotnetRuntimeInstallerName)" Version="$(CoreSetupPackageVersion)" />
+      <RPMSFDependencies Include="aspnetcore-store-2.0.3" Version="2.0.3" />
       <RHSFDirectories Include="$(RHInstallRoot)/shared" />
       <GenericSFDirectories Include="$(InstallRoot)/shared" />
     </ItemGroup>
 
     <PropertyGroup>
       <HostingFPMArguments>@(RPMHostingDependencies->' -d &quot;%(Identity) &gt;= %(Version)&quot;', ' ')</HostingFPMArguments>
+      <SFFPMArguments>@(RPMSFDependencies->' -d &quot;%(Identity) &gt;= %(Version)&quot;', ' ')</SFFPMArguments>
       <RHSFArguments>@(RHSFDirectories->' --directories &quot;%(FullPath)&quot;', ' ')</RHSFArguments>
       <GenericSFArguments>@(GenericSFDirectories->' --directories &quot;%(FullPath)&quot;', ' ')</GenericSFArguments>
 
@@ -137,7 +139,7 @@
       <CommonGenericArguments>RPMFileSuffix=rhel.7-x64.rpm;RPMInstallRoot=$(InstallRoot)</CommonGenericArguments>
       <CommonRHArguments>RPMFileSuffix=rh.rhel.7-x64.rpm;RPMInstallRoot=$(RHInstallRoot)</CommonRHArguments>
 
-      <CommonSFArguments>RPMInstallerPrefix=$(SFInstallerName);SFArchive=$(SFLinuxArchiveFilePath)</CommonSFArguments>
+      <CommonSFArguments>RPMInstallerPrefix=$(SFInstallerName);SFArchive=$(SFLinuxArchiveFilePath);$(SFFPMArguments)</CommonSFArguments>
       <CommonSFArguments>$(CommonSFArguments);RPMSummary=$(SFSummary);RPMDescription=$(SFDescription)</CommonSFArguments>
 
       <CommonHostingArguments>RPMInstallerPrefix=$(HostingInstallerName);RPMArguments=$(HostingFPMArguments)</CommonHostingArguments>
@@ -260,7 +262,7 @@
 
       <CommonProps>Image=$(Image);DebVersion=$(Version)</CommonProps>
       <DebSFProps>DebPrefix=$(SFInstallerName);DebSummary=$(SFSummary);DebDescription=$(SFDescription)</DebSFProps>
-      <DebSFProps>$(DebSFProps);;DebDependencies=$(DebSFDependencies);SFArchive=$(SFLinuxArchiveFilePath)</DebSFProps>
+      <DebSFProps>$(DebSFProps);DebDependencies=$(DebSFDependencies);SFArchive=$(SFLinuxArchiveFilePath)</DebSFProps>
       <DebHostingProps>DebPrefix=$(HostingInstallerName);DebSummary=$(HostingSummary);DebDescription=$(HostingDescription)</DebHostingProps>
       <DebHostingProps>$(DebHostingProps);DebDependencies=$(DebHostingDependencies)</DebHostingProps>
     </PropertyGroup>
